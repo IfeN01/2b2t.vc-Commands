@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "core-2b2tvc",
+  "version": "${version}",
+  "name": "api.2b2t.vc-Commands",
+  "description": "A Meteor Client addon that provides in-game commands to access the public endpoints of api.2b2t.vc, including player stats, last seen, queue information, and other available API data.",
+  "authors": [
+    "IfeN"
+  ],
+  "contact": {
+    "discord": "brainstormseries"
+  },
+  "icon": "assets/core/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "meteor": [
+      "com.ifen.addon.Main"
+    ]
+  },
+  "mixins": [],
+  "custom": {
+    "meteor-client:color": "225,25,25"
+  },
+  "depends": {
+    "java": ">=21",
+    "minecraft": ["${mc_version}", "1.21.7", "1.21.6"],
+    "meteor-client": "*"
+  }
+}
