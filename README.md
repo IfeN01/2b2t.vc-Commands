@@ -1,5 +1,7 @@
 # 2b2t.vc-Core
 
+![Downloads](https://img.shields.io/github/downloads/IfeN01/2b2t.vc-Commands/total?style=for-the-badge&logo=github&logoColor=ed9a3b&color=ed9a3b)
+
 A Meteor Client addon for viewing 2b2t player stats.  
 Supports versions **1.21.8** and **1.21.4**.
 
