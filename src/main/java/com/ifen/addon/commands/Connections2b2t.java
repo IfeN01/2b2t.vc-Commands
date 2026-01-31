@@ -25,7 +25,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 public class Connections2b2t extends Command {
-    private static final String API_ENDPOINT = "/connections?playerName=";
+    private static final String API_ENDPOINT = "/connections";
+    private static final int DEFAULT_PAGE = 1;
     private static final int DEFAULT_LIMIT = 10;
     private static final int MAX_LIMIT = 25;
 
@@ -36,28 +37,53 @@ public class Connections2b2t extends Command {
     @Override
     public void build(LiteralArgumentBuilder<CommandSource> builder) {
         builder.then(argument("player", StringArgumentType.word())
+            // .conns player
             .executes(ctx -> {
-                run(StringArgumentType.getString(ctx, "player"), DEFAULT_LIMIT);
+                run(
+                    StringArgumentType.getString(ctx, "player"),
+                    DEFAULT_PAGE,
+                    DEFAULT_LIMIT
+                );
                 return SINGLE_SUCCESS;
             })
-            .then(argument("limit", IntegerArgumentType.integer(1, MAX_LIMIT))
+            // .conns player page
+            .then(argument("page", IntegerArgumentType.integer(1))
                 .executes(ctx -> {
-                    int limit = ctx.getArgument("limit", Integer.class);
-                    run(StringArgumentType.getString(ctx, "player"), limit);
+                    run(
+                        StringArgumentType.getString(ctx, "player"),
+                        ctx.getArgument("page", Integer.class),
+                        DEFAULT_LIMIT
+                    );
                     return SINGLE_SUCCESS;
                 })
+                // .conns player page limit
+                .then(argument("limit", IntegerArgumentType.integer(1, MAX_LIMIT))
+                    .executes(ctx -> {
+                        run(
+                            StringArgumentType.getString(ctx, "player"),
+                            ctx.getArgument("page", Integer.class),
+                            ctx.getArgument("limit", Integer.class)
+                        );
+                        return SINGLE_SUCCESS;
+                    })
+                )
             )
         );
     }
 
-    private void run(String playerName, int limit) {
+    private void run(String playerName, int page, int limit) {
         final String name = playerName.trim();
 
         MeteorExecutor.execute(() -> {
             ClientPlayerEntity player = MinecraftClient.getInstance().player;
             if (player == null) return;
 
-            String requestUrl = APIHandler.API_URL + API_ENDPOINT + name;
+            String requestUrl =
+                APIHandler.API_URL + API_ENDPOINT +
+                    "?playerName=" + name +
+                    "&page=" + page +
+                    "&pageSize=" + limit;
+
             String response = new APIHandler().fetch(requestUrl);
             if (response == null) return;
 
@@ -77,15 +103,16 @@ public class Connections2b2t extends Command {
             JsonArray connections = root.getAsJsonArray("connections");
             DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MMM dd yyyy, HH:mm", Locale.US);
 
-            player.sendMessage(Text.of("§8<§7-------- §7Connections for §f" + name + "§7: §7--------§8>"), false);
+            player.sendMessage(Text.of(
+                "§8<§7-------- §7Connections for §f" + name +
+                    " §7(Page " + page + ") §7--------§8>"
+            ), false);
 
-            int printed = 0;
             for (JsonElement e : connections) {
-                if (printed >= limit) break;
-
                 JsonObject conn = e.getAsJsonObject();
                 String type = conn.get("connection").getAsString();
                 String timeStr = conn.get("time").getAsString();
+
                 String typeColor = switch (type) {
                     case "JOIN" -> "§a";
                     case "LEAVE" -> "§c";
@@ -93,12 +120,13 @@ public class Connections2b2t extends Command {
                 };
 
                 ZonedDateTime zdt = Instant.parse(timeStr).atZone(ZoneId.systemDefault());
-                player.sendMessage(Text.of(" §8• " + typeColor + type + " §7at §f" + zdt.format(fmt)), false);
-                printed++;
+                player.sendMessage(
+                    Text.of(" §8• " + typeColor + type + " §7at §f" + zdt.format(fmt)),
+                    false
+                );
             }
 
             player.sendMessage(Text.of(""), false);
         });
     }
-
 }

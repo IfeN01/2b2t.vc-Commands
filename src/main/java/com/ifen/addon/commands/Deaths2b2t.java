@@ -25,8 +25,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 public class Deaths2b2t extends Command {
-    private static final String API_ENDPOINT_PLAYER = "/deaths?playerName=";
+    private static final String API_ENDPOINT_PLAYER = "/deaths";
     private static final String API_ENDPOINT_TOP_MONTH = "/deaths/top/month";
+
+    private static final int DEFAULT_PAGE = 1;
+    private static final int DEFAULT_LIMIT = 5;
     private static final int MAX_LIMIT = 20;
 
     public Deaths2b2t() {
@@ -37,16 +40,36 @@ public class Deaths2b2t extends Command {
     public void build(LiteralArgumentBuilder<CommandSource> builder) {
         builder.then(literal("player")
             .then(argument("player", StringArgumentType.word())
+                // .deaths player name
                 .executes(ctx -> {
-                    runPlayerDeaths(StringArgumentType.getString(ctx, "player"), 5);
+                    runPlayerDeaths(
+                        StringArgumentType.getString(ctx, "player"),
+                        DEFAULT_PAGE,
+                        DEFAULT_LIMIT
+                    );
                     return SINGLE_SUCCESS;
                 })
-                .then(argument("limit", IntegerArgumentType.integer(1, MAX_LIMIT))
+                // .deaths player name page
+                .then(argument("page", IntegerArgumentType.integer(1))
                     .executes(ctx -> {
-                        int limit = ctx.getArgument("limit", Integer.class);
-                        runPlayerDeaths(StringArgumentType.getString(ctx, "player"), limit);
+                        runPlayerDeaths(
+                            StringArgumentType.getString(ctx, "player"),
+                            ctx.getArgument("page", Integer.class),
+                            DEFAULT_LIMIT
+                        );
                         return SINGLE_SUCCESS;
                     })
+                    // .deaths player name page limit
+                    .then(argument("limit", IntegerArgumentType.integer(1, MAX_LIMIT))
+                        .executes(ctx -> {
+                            runPlayerDeaths(
+                                StringArgumentType.getString(ctx, "player"),
+                                ctx.getArgument("page", Integer.class),
+                                ctx.getArgument("limit", Integer.class)
+                            );
+                            return SINGLE_SUCCESS;
+                        })
+                    )
                 )
             )
         );
@@ -61,12 +84,17 @@ public class Deaths2b2t extends Command {
         );
     }
 
-    private void runPlayerDeaths(String playerName, int limit) {
+    private void runPlayerDeaths(String playerName, int page, int limit) {
         MeteorExecutor.execute(() -> {
             ClientPlayerEntity player = MinecraftClient.getInstance().player;
             if (player == null) return;
 
-            String requestUrl = APIHandler.API_URL + API_ENDPOINT_PLAYER + playerName;
+            String requestUrl =
+                APIHandler.API_URL + API_ENDPOINT_PLAYER +
+                    "?playerName=" + playerName +
+                    "&page=" + page +
+                    "&pageSize=" + limit;
+
             String response = new APIHandler().fetch(requestUrl);
             if (response == null) return;
 
@@ -84,9 +112,10 @@ public class Deaths2b2t extends Command {
             }
 
             JsonArray deaths = root.getAsJsonArray("deaths");
-            sendMessageLines(player,
-                "Deaths for §b" + playerName,
-                getFormattedDeaths(deaths, limit)
+            sendMessageLines(
+                player,
+                "Deaths for §b" + playerName + " §7(Page " + page + ")",
+                getFormattedDeaths(deaths)
             );
         });
     }
@@ -127,8 +156,8 @@ public class Deaths2b2t extends Command {
         });
     }
 
-    private String[] getFormattedDeaths(JsonArray deaths, int limit) {
-        int count = Math.min(deaths.size(), limit);
+    private String[] getFormattedDeaths(JsonArray deaths) {
+        int count = deaths.size();
         String[] lines = new String[count];
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MMM dd yyyy, HH:mm", Locale.US);
 

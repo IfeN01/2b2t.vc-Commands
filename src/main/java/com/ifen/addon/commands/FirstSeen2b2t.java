@@ -27,7 +27,7 @@ public class FirstSeen2b2t extends Command {
     private static final String API_ENDPOINT = "/seen?playerName=";
 
     public FirstSeen2b2t() {
-        super("firstseen2b2t", "Shows first seen info for a player.", "fs", "firstseen");
+        super("firstseen2b2t", "Shows first seen info for a player.", "fs", "firstseen", "joindate", "jd");
     }
 
     @Override
