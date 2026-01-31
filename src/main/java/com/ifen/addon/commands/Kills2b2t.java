@@ -25,8 +25,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 public class Kills2b2t extends Command {
-    private static final String API_ENDPOINT_PLAYER = "/kills?playerName=";
+    private static final String API_ENDPOINT_PLAYER = "/kills";
     private static final String API_ENDPOINT_TOP_MONTH = "/kills/top/month";
+
+    private static final int DEFAULT_PAGE = 1;
+    private static final int DEFAULT_LIMIT = 5;
     private static final int MAX_LIMIT = 20;
 
     public Kills2b2t() {
@@ -37,16 +40,36 @@ public class Kills2b2t extends Command {
     public void build(LiteralArgumentBuilder<CommandSource> builder) {
         builder.then(literal("player")
             .then(argument("player", StringArgumentType.word())
+                // .kills player name
                 .executes(ctx -> {
-                    runPlayerKills(StringArgumentType.getString(ctx, "player"), 5);
+                    runPlayerKills(
+                        StringArgumentType.getString(ctx, "player"),
+                        DEFAULT_PAGE,
+                        DEFAULT_LIMIT
+                    );
                     return SINGLE_SUCCESS;
                 })
-                .then(argument("limit", IntegerArgumentType.integer(1, MAX_LIMIT))
+                // .kills player name page
+                .then(argument("page", IntegerArgumentType.integer(1))
                     .executes(ctx -> {
-                        int limit = ctx.getArgument("limit", Integer.class);
-                        runPlayerKills(StringArgumentType.getString(ctx, "player"), limit);
+                        runPlayerKills(
+                            StringArgumentType.getString(ctx, "player"),
+                            ctx.getArgument("page", Integer.class),
+                            DEFAULT_LIMIT
+                        );
                         return SINGLE_SUCCESS;
                     })
+                    // .kills player name page limit
+                    .then(argument("limit", IntegerArgumentType.integer(1, MAX_LIMIT))
+                        .executes(ctx -> {
+                            runPlayerKills(
+                                StringArgumentType.getString(ctx, "player"),
+                                ctx.getArgument("page", Integer.class),
+                                ctx.getArgument("limit", Integer.class)
+                            );
+                            return SINGLE_SUCCESS;
+                        })
+                    )
                 )
             )
         );
@@ -61,12 +84,17 @@ public class Kills2b2t extends Command {
         );
     }
 
-    private void runPlayerKills(String playerName, int limit) {
+    private void runPlayerKills(String playerName, int page, int limit) {
         MeteorExecutor.execute(() -> {
             ClientPlayerEntity player = MinecraftClient.getInstance().player;
             if (player == null) return;
 
-            String requestUrl = APIHandler.API_URL + API_ENDPOINT_PLAYER + playerName;
+            String requestUrl =
+                APIHandler.API_URL + API_ENDPOINT_PLAYER +
+                    "?playerName=" + playerName +
+                    "&page=" + page +
+                    "&pageSize=" + limit;
+
             String response = new APIHandler().fetch(requestUrl);
             if (response == null) return;
 
@@ -84,9 +112,10 @@ public class Kills2b2t extends Command {
             }
 
             JsonArray kills = root.getAsJsonArray("kills");
-            sendMessageLines(player,
-                "Kills for §b" + playerName,
-                getFormattedKills(kills, limit)
+            sendMessageLines(
+                player,
+                "Kills for §b" + playerName + " §7(Page " + page + ")",
+                getFormattedKills(kills)
             );
         });
     }
@@ -120,15 +149,15 @@ public class Kills2b2t extends Command {
                 JsonObject p = players.get(i).getAsJsonObject();
                 String name = p.get("playerName").getAsString();
                 int killsCount = p.get("count").getAsInt();
-                lines[i] = String.format("§b%s§f kills: §f%d", name, killsCount);
+                lines[i] = "§7" + (i + 1) + ". §b" + name + " §7kills: §f" + killsCount;
             }
 
             sendMessageLines(player, "Top kills this month", lines);
         });
     }
 
-    private String[] getFormattedKills(JsonArray kills, int limit) {
-        int count = Math.min(kills.size(), limit);
+    private String[] getFormattedKills(JsonArray kills) {
+        int count = kills.size();
         String[] lines = new String[count];
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MMM dd yyyy, HH:mm", Locale.US);
 
@@ -137,11 +166,7 @@ public class Kills2b2t extends Command {
             String killMsg = k.get("deathMessage").getAsString();
             ZonedDateTime zdt = Instant.parse(k.get("time").getAsString()).atZone(ZoneId.systemDefault());
 
-            lines[i] = String.format(
-                "§7[%s] §f%s",
-                zdt.format(fmt),
-                killMsg
-            );
+            lines[i] = "§7[" + zdt.format(fmt) + "] §f" + killMsg;
         }
 
         return lines;
